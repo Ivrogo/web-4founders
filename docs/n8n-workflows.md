@@ -43,7 +43,7 @@ PORT=3000
 
 ## Workflow 2 — Lead guía (`POST /api/lead`)
 
-**Trigger:** Webhook POST (path sugerido: `lead`)
+**Trigger:** Webhook POST — producción: `https://appn8n.institutoraimongaja.com/webhook/e6d7fc5a-e094-4829-90ca-3a33b7ebe755`
 
 **Payload:**
 
@@ -126,6 +126,8 @@ Si n8n responde con status distinto de 2xx, la API devuelve `502` al frontend co
 
 ## Prueba local sin n8n
 
-Sin `N8N_*_WEBHOOK` configuradas, la API acepta el envío y registra un warning en consola (útil para desarrollo).
+Sin `N8N_CONTACT_WEBHOOK` configurada, el formulario de contacto se acepta localmente con warning en consola.
+
+`N8N_LEAD_WEBHOOK` es **obligatoria** para el lead magnet: sin ella, `/api/lead` responde `503` y la guía no se desbloquea.
 
 Sin `GITHUB_TOKEN`, la publicación de blog escribe en disco local pero no commitea al repo (útil para desarrollo).

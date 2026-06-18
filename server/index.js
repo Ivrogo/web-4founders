@@ -1,10 +1,12 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 import { publishBlogPost } from './blog/publish.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
+dotenv.config({ path: path.join(root, '.env') });
 const PORT = Number(process.env.PORT) || 3000;
 
 const app = express();
@@ -64,8 +66,13 @@ app.post('/api/lead', async (req, res) => {
   if (!isEmail(email)) {
     return res.status(400).json({ error: 'Introduce un email válido.' });
   }
+  const webhookUrl = process.env.N8N_LEAD_WEBHOOK;
+  if (!webhookUrl) {
+    console.error('N8N_LEAD_WEBHOOK not set — cannot forward lead');
+    return res.status(503).json({ error: 'No pudimos procesar tu solicitud. Inténtalo de nuevo.' });
+  }
   try {
-    await forwardToN8n(process.env.N8N_LEAD_WEBHOOK, {
+    await forwardToN8n(webhookUrl, {
       source: 'web-4founders',
       type: 'lead',
       email: email.trim(),
@@ -85,4 +92,9 @@ app.use(express.static(path.join(root, 'public'), { index: 'index.html' }));
 
 app.listen(PORT, () => {
   console.log(`4Founders Studio listening on :${PORT}`);
+  if (process.env.N8N_LEAD_WEBHOOK) {
+    console.log('N8N lead webhook: configured');
+  } else {
+    console.warn('N8N_LEAD_WEBHOOK not set — lead form saves UI state only, no n8n call');
+  }
 });

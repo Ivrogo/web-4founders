@@ -185,7 +185,7 @@
     return ok;
   }
 
-  function wireForm(formId, okId, errId, endpoint, getPayload) {
+  function wireForm(formId, okId, errId, endpoint, getPayload, onSuccess) {
     var form = document.getElementById(formId);
     if (!form) return;
     var ok = document.getElementById(okId);
@@ -228,6 +228,7 @@
       }).then(function () {
         form.style.display = 'none';
         if (ok) ok.classList.add('show');
+        if (onSuccess) onSuccess(form);
       }).catch(function () {
         if (errEl) errEl.hidden = false;
         if (submitBtn) {
@@ -238,9 +239,43 @@
     });
   }
 
+  var LEAD_UNLOCK_KEY = '4f-lead-unlocked';
+
+  function unlockLeadGuide() {
+    var panel = document.getElementById('leadGuidePanel');
+    if (!panel) return;
+    panel.classList.remove('is-locked');
+    panel.classList.add('is-unlocked');
+    var lock = panel.querySelector('.lm-guide-lock');
+    if (lock) lock.setAttribute('aria-hidden', 'true');
+    var link = panel.querySelector('.lm-guide-link');
+    if (link) {
+      link.removeAttribute('aria-disabled');
+      link.removeAttribute('tabindex');
+    }
+    try { localStorage.setItem(LEAD_UNLOCK_KEY, '1'); } catch (e) {}
+  }
+
+  function restoreLeadGuideIfUnlocked() {
+    var unlocked = false;
+    try { unlocked = localStorage.getItem(LEAD_UNLOCK_KEY) === '1'; } catch (e) {}
+    if (!unlocked) return;
+    unlockLeadGuide();
+    var form = document.getElementById('leadForm');
+    var ok = document.getElementById('leadOk');
+    if (form && ok) {
+      form.style.display = 'none';
+      ok.classList.add('show');
+    }
+  }
+
   wireForm('leadForm', 'leadOk', 'leadErr', '/api/lead', function (form) {
     return { email: form.querySelector('[name="email"]').value.trim() };
+  }, function () {
+    unlockLeadGuide();
   });
+
+  restoreLeadGuideIfUnlocked();
 
   wireForm('contactForm', 'contactOk', 'contactErr', '/api/contact', function (form) {
     return {

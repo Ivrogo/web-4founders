@@ -14,7 +14,7 @@ docs/       # Brand kit, workflows n8n
 ## Desarrollo local
 
 ```bash
-cp .env.example .env
+cp .env.example .env   # desde la raíz del repo — añade tu N8N_LEAD_WEBHOOK real
 cd server && npm install && npm run dev
 ```
 
