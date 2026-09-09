@@ -1,152 +1,93 @@
-# AGENTS.md — Web 4Founders Studio
+# AGENTS.md
 
-> **Regla absoluta:** En cada iteración, este archivo y las skills referenciadas se siguen **a rajatabla**. No improvisar flujos alternativos.
+Work this repo **cloud-agent first** on GitHub (Cursor Cloud Agents). Do not assume a local Mac checkout.
 
-## Proyecto
+**web-4founders** is the corporate landing + interactive guide for 4Founders Studio. Live site: [https://4founders.studio](https://4founders.studio).
 
-| Campo | Valor |
-|-------|-------|
-| Repo | `git@github-personal:Ivrogo/web-4founders.git` |
-| Rama protegida | `main` — **solo merge vía pull request** |
-| Deploy | Coolify (Docker, rama `main`) |
-| Dominio objetivo | `4founders.studio` |
+## Defaults
 
-## Regla obligatoria de desarrollo
+| | |
+|---|---|
+| Default branch | `main` |
+| Hosting | Coolify (Docker, `Dockerfile` at repo root) deploys from `main` |
+| Merge / deploy | **Never merge a PR or trigger a Coolify deploy** without explicit human OK |
 
-Todo desarrollo sigue siempre:
+Open a PR to `main`. Leave it unmerged. Asistente Ivrogo will merge.
 
-1. **Plan** — alcance, archivos afectados, tier de complejidad
-2. **Implementación** — rama `feat/*` o `fix/*`, nunca push directo a `main`
-3. **Validación** — evidencia objetiva (servidor, health, formularios, build Docker)
-4. **Documentación** — README/AGENTS si cambia el contrato; PR con test plan
+## Purpose
 
-### Flujo Git (obligatorio)
+Static HTML/CSS/JS landing (`public/`) plus a dc-runtime guide (`guia/`), served by a small Express app (`server/`). Forms POST to `/api/contact` and `/api/lead`; the server forwards JSON to n8n webhooks, then Odoo CRM. The browser never talks to n8n or Odoo.
+
+## Stack
+
+- Landing: HTML/CSS/vanilla JS in `public/` (Brand Kit in `docs/brand-kit.html`)
+- Guide: dc-runtime in `guia/`, served at `/guia`
+- API: Express ESM (`server/index.js`) — static files + `/api/*` + `/health`
+- Node 20 Alpine (`Dockerfile`)
+- No GitHub Actions CI. No lint or test scripts.
+
+**Do not add** `tweaks-panel`, React, or Babel CDN on the production landing.
+
+## Layout
+
+```
+public/          landing, blog, legal, assets, styles.css, app.js
+guia/            interactive guide (served at /guia)
+server/          Express: static + /api/contact, /api/lead, /api/blog/publish, /health
+docs/            brand-kit.html, n8n-workflows.md
+Dockerfile       Node 20 Alpine, healthcheck GET /health
+```
+
+Register extra static routes **before** the `public/` catch-all in `server/index.js`.
+
+Project skill (read at the start of implementation work): `.cursor/skills/web-4founders-best-practices/SKILL.md`.
+
+Before touching `public/` or `guia/`, also read `.agents/skills/ui-ux-pro-max`, `frontend-design`, and `web-design-guidelines`.
+
+## Commands (Linux / Cloud Agent)
+
+There is no root `package.json`. The server lives in `server/`. There are no `lint` or `test` scripts.
 
 ```bash
-git checkout main && git pull
-git checkout -b feat/descripcion-corta
-# ... cambios ...
-git push -u origin feat/descripcion-corta
-gh pr create --base main
+cd server
+npm ci
+npm start          # node index.js — http://localhost:3000
 ```
 
-No mergear sin PR revisado. Coolify despliega al fusionar en `main`.
+Dev with reload: `npm run dev` (`node --watch`).
 
-## Skills — usar siempre
-
-### Skill de proyecto (leer al inicio de cada tarea)
-
-| Skill | Ruta |
-|-------|------|
-| **web-4founders-best-practices** | `.cursor/skills/web-4founders-best-practices/SKILL.md` |
-
-### Skills de diseño UI/UX (leer antes de tocar `public/` o `guia/`)
-
-| Skill | Ruta |
-|-------|------|
-| frontend-design | `.agents/skills/frontend-design/SKILL.md` |
-| web-design-guidelines | `.agents/skills/web-design-guidelines/SKILL.md` |
-| ui-ux-pro-max | `.agents/skills/ui-ux-pro-max/SKILL.md` |
-
-**Orden recomendado para cambios visuales:**
-
-1. `web-4founders-best-practices` (marca y stack)
-2. `ui-ux-pro-max` (paleta, tipografía, layout)
-3. `frontend-design` (calidad visual)
-4. `web-design-guidelines` (accesibilidad y UX)
-
-## Stack — no desviarse
-
-```
-public/          → Landing HTML/CSS/JS
-guia/            → Guía dc-runtime en /guia
-server/          → Express: estáticos + /api/* + /health
-docs/            → brand-kit.html, n8n-workflows.md
-Dockerfile       → Node 20 Alpine
-```
-
-**Integraciones:** formularios → `server/index.js` → webhooks n8n → Odoo CRM.
-
-## Routing dinámico de modelos
-
-| Tier | Señales | Modelo |
-|------|---------|--------|
-| `trivial` | 1 archivo, copy, typos, CSS puntual | Ligero |
-| `standard` | 2–5 archivos, API, formularios, guía | Intermedio |
-| `complex` | Arquitectura, seguridad, Docker/Coolify, migraciones | Alto |
-
-**Fuerzan tier `complex`:** auth, secretos, cambios de deploy, borrado de datos.
-
-## Artefactos de misión (cambios grandes)
-
-Para features o refactors multi-archivo, crear:
-
-```
-missions/<nombre>/
-  plan.md
-  execution.log
-  verification.json
-```
-
-`verification.json` con `status: "passed"` antes de abrir PR.
-
-## Contrato de verificación mínimo
-
-```json
-{
-  "status": "passed",
-  "checks": [
-    { "name": "server_health", "result": "pass" },
-    { "name": "docker_build", "result": "pass" },
-    { "name": "routes", "result": "pass", "detail": "/, /guia, /health" }
-  ]
-}
-```
-
-Comandos de referencia:
+Smoke:
 
 ```bash
-cd server && npm run dev &
 curl -s http://localhost:3000/health
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/
 curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/guia/
+```
+
+Docker (does not start Coolify):
+
+```bash
 docker compose build
 ```
 
-## Perfil Security Advisor
+`docker compose up` expects a root `.env` (see `.env.example`). Do not use Mac-only tools. Do not assume a checkout under `/Users/...`.
 
-Invocar revisión estricta antes de:
+## Env
 
-- Cambiar variables de entorno o webhooks
-- Ejecutar comandos destructivos en git
-- Exponer secretos en frontend o commits
-- Modificar Dockerfile o permisos de red
+Names only. Never commit values. Copy `.env.example` when present.
 
-Veredicto: `[YES] Reason: ...` o `[NO] Reason: ...`
+- `N8N_CONTACT_WEBHOOK` — contact form → n8n
+- `N8N_LEAD_WEBHOOK` — lead magnet → n8n
+- `BLOG_PUBLISH_SECRET` — Bearer secret for `POST /api/blog/publish`
+- `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_BRANCH` — blog publish commits
+- `PORT` — server port (default `3000`)
 
-## Knowledge base
+n8n webhook URLs stay on the server. Never expose them (or Odoo credentials) to the frontend.
 
-Guardar en `knowledge/*.md` (crear si no existe):
+## Agent notes
 
-- Decisiones de arquitectura y gotchas del proyecto
-- URLs reales de redes sociales cuando se confirmen
-- IDs de workflows n8n una vez creados
-
-Consultar en fase Plan antes de repetir trabajo.
-
-## Checklist pre-PR
-
-- [ ] Skill `web-4founders-best-practices` aplicada
-- [ ] Skills de diseño consultadas si hay cambios UI
-- [ ] Sin `tweaks-panel` ni React dev en producción
-- [ ] Rama feature, no `main`
-- [ ] `README.md` actualizado si cambia setup o rutas
-- [ ] `docs/n8n-workflows.md` actualizado si cambian payloads API
-- [ ] Build Docker OK
-- [ ] PR con test plan
-
-## Fuera de alcance (no implementar sin issue)
-
-- Descarga automática de guía tras formulario
-- Calendly embebido
-- Migración a Next.js
-- Backend con base de datos propia
+- Prefer small, reviewable PRs. Do not push to `main`.
+- Do not change Coolify config, GitHub secrets, workflows, or production unless a human asks.
+- If API payloads change, update `docs/n8n-workflows.md`.
+- Out of scope without a dedicated issue: auto-download of the guide after the form, embedded Calendly, Next.js migration, first-party database.
+- Comments and new code in English; Spanish is OK in docs and PRs. Site copy is Spanish.
